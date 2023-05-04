@@ -10,71 +10,99 @@ import time as t
 
 
 def extract_color(image, color):
+    """Given an image and a color, return a filtered version of the image where only the specified color remains.
+       Furthermore, returns the conditions under which a contour and associated rectangle are interesting to keep for the given color.
+       For example, these conditions include imposing that the rectangle is square enough.
+       Further still, returns the minimum size a rectangle should have for a contour of this color,
+       and the percentage one should enlargen the obtained rectangle in order to enclose the whole traffic sign.
+       Finally, returns the conditions under which a rectangle is considered 'special' and the conditions to merge two of these special rectangles.
+       Please read the report for the full explanation of 'special' rectangles (under 'Modèle final')."""
+    
+    #Get image info and set default values
     height, width, c = image.shape
     invert = False
     two_masks = False
-    special_conditions_1 = lambda w,h,minsize,cnt : False
-    special_conditions_2 = lambda rec1, rec2 : False
-    special_conditions = [special_conditions_1,special_conditions_2]
+    special_conditions_1 = lambda w,h,minsize,cnt : False   #The first special conditions depends on the contour itself
+    special_conditions_2 = lambda rec1, rec2 : False        #While the second depends on the relative size and position of the associated values
+    special_conditions = [special_conditions_1,special_conditions_2]   #By default, no rectangle is considered 'special'
+    
+    # For each color, specify the bounds for the mask, as well as the associated conditions, minimum size and percentage
     if color == "blue" :
         lower_bound = np.array([100,100,50])
         upper_bound = np.array([140,255,255])
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 4/5 * w <= h <= 5/4 * w and peri < 0.27*w*h
         percentage = 0.1
         minsize = max(min(height,width)/35, 16)
+        
     elif color == "red" :
+        #Red spans around 180 / 0 in the HSV format, so we need two sets of bounds.
         two_masks = True
         lower_bound = np.array([0,100,0])
         upper_bound = np.array([20,255,255])
         lower_bound2 = np.array([160,100,0])
         upper_bound2 = np.array([180,255,255])
+        
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 4/5 * w <= h <= 5/4 * w and peri < 0.27*w*h
+        
+        #Here special conditions apply, for the no_entry traffic sign
         special_conditions_1 = lambda w,h,minsize,peri : w >= minsize and h >= minsize/2.5 and 0.43 * w <= h <= 0.49 * w and peri < 0.25*w*h
         special_conditions_2 = lambda rec1, rec2 : abs(rec1[0]-rec2[0]) <= 4 and abs(rec1[2]-rec2[2]) <= 8 and abs(rec1[3]-rec2[3]) <= 6 and abs(rec1[1]-rec2[1]) <= 2*rec1[3]
         special_conditions = [special_conditions_1,special_conditions_2]
+        
         percentage = 0.1
         minsize = max(min(height,width)/35, 16)
+        
     elif color == "white" :
-        brigthen = True
         lower_bound = np.array([0,0,100])
         upper_bound = np.array([180,40,255])
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 2/3 * w <= h <= 3/2 * w  # and cnt.shape[0] < 0.15*w*h
         percentage = 0.5
         minsize = max(min(height,width)/35, 12)
+        
     elif color == "black" :
+        
+        #Invert the final mask otherwise we get black pixels on a black background...
         invert = True
         lower_bound = np.array([0,50,0])
         upper_bound = np.array([255,255,60])
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 3/4 * w <= h <= 4/3 * w and peri < 0.27*w*h
         percentage = 0.1
         minsize = max(min(height,width)/25, 16)
+        
     elif color == "orange" :
+        
         lower_bound = np.array([10,50,0])
         upper_bound = np.array([30,255,255])
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 9/10 * w <= h <= 10/9 * w and peri < 0.15*w*h
+        
+        #Here as well, special conditions apply for the end_priority traffic sign
         special_conditions_1 = conditions
         special_conditions_2 = lambda rec1, rec2 : overlap_percentage(rec1, rec2) >= 0.35 and abs(rec1[2]-rec2[2]) <= 8 and abs(rec1[3]-rec2[3]) <= 8 and abs(rec1[0]-rec2[0]) >= rec1[2]/4 and abs(rec1[1]-rec2[1]) >= rec1[3]/4
         special_conditions = [special_conditions_1,special_conditions_2]
         percentage = 0.75
         minsize = max(min(height,width)/50, 10)
+    
+    #If the color is not specified or unexpected, return the non filtered original image, default conditions, percentage etc...
     else :
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 3/4 * w <= h <= 4/3 * w and peri < 0.27*w*h
         percentage = 0.1
         minsize = max(min(height,width)/25, 16)
         return image, conditions, special_conditions, percentage, minsize
-
     
+    #Transform the image to HSV format
     frame = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # preparing the mask to overlay
+    # Compute the pixels which are inside the bounds, in the form of a mask
     mask = cv2.inRange(frame, lower_bound, upper_bound)
     if two_masks :
         mask2 = cv2.inRange(frame, lower_bound2, upper_bound2)
         mask = mask + mask2
     
+    #This is used for the black filter : convert first all pixels to a uniform color different then black before applying the mask
     if invert :
         frame = np.full_like(frame, 100)
-        # frame = np.invert(frame)
+    
+    #Apply the mask and return the results
     result = cv2.bitwise_and(frame, frame, mask = mask)
     return  cv2.cvtColor(result, cv2.COLOR_HSV2BGR), conditions, special_conditions, percentage, minsize
 
@@ -111,6 +139,7 @@ def adjust_gamma(image, gamma=1.0):
     new_image = cv2.LUT(image, lookUpTable)
 
     return new_image
+
 
 
 # nbr_contours = []
