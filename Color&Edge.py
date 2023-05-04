@@ -126,6 +126,7 @@ def merge_rectangles(rec1, rec2):
 
 
 #Adjust the gamma parameter of the image. If gamma > 0, brigthens the image, otherwise darken it.
+#This is an OpenCV function, as fond at : https://pyimagesearch.com/2015/10/05/opencv-gamma-correction/
 def adjust_gamma(image, gamma=1.0):
     new_image = np.zeros(image.shape, image.dtype)
 
@@ -146,14 +147,13 @@ def adjust_gamma(image, gamma=1.0):
 
 
 def contours(original_image, conditions, special_conditions, percentage, minsize):
-    # Get original height and width
+    """Find the contours in an image thanks to edge detection, then return rectangles enclosing
+       those contours that verify the specified conditions (Enlarge them with the specified percentage)."""
+    
+    # Get original height and width, and adjust the gamma coefficient
     height, width, c = original_image.shape
     gamma = 1.5
-    # plt.imshow(cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB))
-    # plt.show()
     img = adjust_gamma(image=original_image, gamma=gamma)
-    # plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    # plt.show()
 
     # convert the image to grayscale format
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -161,25 +161,28 @@ def contours(original_image, conditions, special_conditions, percentage, minsize
     # Find Canny edges
     edges = cv2.Canny(image=img_gray, threshold1=200, threshold2=350) # Increase the thresholds to keep less edges
     
-    # Using a findContours() function
+    # Find contours using the findContours() function
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Eventually, show the results of these steps
     # plt.imshow(cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB))
     # plt.show()
     # Draw in blue the contours that were found
     # cv2.drawContours(image=edges, contours=contours, contourIdx=-1, color=(255, 0, 0), thickness=1)
     # plt.imshow(cv2.cvtColor(edges, cv2.COLOR_BGR2RGB))
     # plt.show()
-    # cv2.imshow("Window", edges)
-    # cv2.waitKey(0)
     # nbr_contours.append(len(contours))
     
+    # To eventually plot further results :
     # img_contour = original_image.copy()
+    
+    # To store interesting rectangles and special rectangles
     rectangles = []
     special_rectangles = []
     
     for cnt in contours:
         
-        # cv2.approxPloyDP() function to approximate the shape
+        # Compute the perimeter of the contour and find a bounding box for it
         peri = cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, 0.03 * peri, True)
         x, y, w, h = cv2.boundingRect(approx)
@@ -187,8 +190,6 @@ def contours(original_image, conditions, special_conditions, percentage, minsize
         
         #If the given rectangle verifies the specified conditions, resize it and add it to the list of interesting rectangles
         if (conditions(w,h,minsize,peri)):
-            # Draw in blue the contours that were found
-            # cv2.drawContours(image=img_contour, contours=cnt, contourIdx=-1, color=(255, 0, 0), thickness=2)
             
             # Resize the rectangle (enlarge it) 
             percent_w = w*percentage
@@ -211,8 +212,9 @@ def contours(original_image, conditions, special_conditions, percentage, minsize
             
             #Add rectangle to the list of interesting rectangles
             rectangles.append((x,y,w,h))
-
-            # Using drawContours() function --> draw the contour in red with thickness 2
+            
+            # Eventually, draw in blue the contours that are kept, and the bounding rectangle
+            # cv2.drawContours(image=img_contour, contours=cnt, contourIdx=-1, color=(255, 0, 0), thickness=2)
             # cv2.rectangle(img_contour, (x,y), (x+w, y+h), (0, 0, 255), 2)
         
         
@@ -241,6 +243,7 @@ def contours(original_image, conditions, special_conditions, percentage, minsize
             #Add rectangle to the list of special rectangles
             special_rectangles.append((x,y,w,h))
             
+            # Eventually, draw in blue the contours that are kept, and the bounding rectangle
             # cv2.drawContours(image=img_contour, contours=cnt, contourIdx=-1, color=(255, 0, 0), thickness=2)
             # cv2.rectangle(img_contour, (x,y), (x+w, y+h), (0, 0, 255), 2)
     
@@ -251,15 +254,18 @@ def contours(original_image, conditions, special_conditions, percentage, minsize
             if(special_conditions[1](special_rectangles[i],special_rectangles[j])):
                 merged_rec = merge_rectangles(special_rectangles[i],special_rectangles[j])
                 rectangles.append(merged_rec)
-    
+                
+    # Eventually, visualise the contours that are kept, and their bounding rectangles
     # cv2.imshow("Window", img_contour)
     # cv2.waitKey(0)
+    
+    #Return the interesting rectangles
     return rectangles
 
 
 
 
-#dictionnaire des labels: {num_panneau: nom_panneau, ...}
+#dictionary of labels: {TS_ID: TS_name, ...}
 dico = {}
 df = pd.read_excel("LEPL1507_TS.xlsx")
 for index, row in df.iterrows():
@@ -273,6 +279,7 @@ pannelModel = models.load_model("my_background&panel_model")
 cropped_model = models.load_model('my_balanced_model_merged_RMS_32_15_Augmented.h5')
 
 
+#Load all images
 image_size=32
 X = []
 Y = []
@@ -281,8 +288,7 @@ final_y_pred = []
 count = 0
 folders_path = "challenge-1/eval_kaggle1_sorted"
 folders_path = "challenge-2-non-cropped-images/eval_kaggle2_sorted"
-folders_path = "challenge-3-noisy-images\eval_kaggle3_sorted"
-folders_path = "BalancedDataSet"
+folders_path = "challenge-3-noisy-images/eval_kaggle3_sorted"
 folders = sorted(os.listdir(folders_path))
 for folder_path in folders:
     label = int(folder_path)
@@ -295,23 +301,16 @@ for folder_path in folders:
             count += 1
             Y.append(label)
 
-for im in X :
-    plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
-    plt.show()
-
+            
 IM_index = 0
 NBR_correct = 0
-#31,35,42,43
-# X = X[44:45]
-# Y = Y[18:19]
 
 nbr_rect = np.empty_like(X)
 i_nbr_rect = 0
 start = t.time()
 max_time = 0
+
 for image in X :
-    
-    
     
     im_time = t.time()
     kept_images = []
