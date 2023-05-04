@@ -9,29 +9,8 @@ from keras.utils import to_categorical
 import time as t
 
 
-def increase_brightness(img, value):
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
-
-    lim = 255 - value
-    v[v > lim] = 255
-    v[v <= lim] += value
-
-    final_hsv = cv2.merge((h, s, v))
-    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
-    return img
-
-def compute_brightness(img):
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
-    
-    mean_v = v.mean()
-    return mean_v
-
-
 def extract_color(image, color):
     height, width, c = image.shape
-    brigthen = False
     invert = False
     two_masks = False
     special_conditions_1 = lambda w,h,minsize,cnt : False
@@ -79,15 +58,12 @@ def extract_color(image, color):
         percentage = 0.75
         minsize = max(min(height,width)/50, 10)
     else :
-        #brigthen = True
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 3/4 * w <= h <= 4/3 * w and peri < 0.27*w*h
         percentage = 0.1
         minsize = max(min(height,width)/25, 16)
         return image, conditions, special_conditions, percentage, minsize
+
     
-    if brigthen :
-        brightness = compute_brightness(image)
-        if brightness < 150 : image = increase_brightness(image, int(150-brightness))
     frame = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     # preparing the mask to overlay
@@ -103,22 +79,7 @@ def extract_color(image, color):
     return  cv2.cvtColor(result, cv2.COLOR_HSV2BGR), conditions, special_conditions, percentage, minsize
 
 
-# folder = "Training/00000/"
-
-# images = ["01160_00000.ppm"]
-
-# for image_path in images:
-    
-#     image = cv2.resize(cv2.imread(folder + image_path),(350,350))
-#     cv2.imshow("Title", image)
-#     cv2.waitKey(0)
-#     # preparing the mask to overlay
-#     result = extract_color(image, "black")
-#     cv2.imshow("Title", result)
-#     cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
-
+#Given two rectangles, computes the overlap percentage as the ratio of the overlapping area wrt the area of the bigger rectangle
 def overlap_percentage(rec1,rec2):
     x1,y1,w1,h1 = rec1
     x2,y2,w2,h2 = rec2
@@ -127,7 +88,7 @@ def overlap_percentage(rec1,rec2):
     perc = w*h/max(w1*h1,w2*h2)
     return perc
 
-
+#Given two rectangles, create a new one englobing fully both rectangles
 def merge_rectangles(rec1, rec2):
     x1,y1,w1,h1 = rec1
     x2,y2,w2,h2 = rec2
@@ -136,30 +97,9 @@ def merge_rectangles(rec1, rec2):
     return (x,y,w,h)
 
 
-X_test = []
-rectangles = []
-image_size = 32
-
-
-
-
+#Adjust the gamma parameter of the image. If gamma > 0, brigthens the image, otherwise darken it.
 def adjust_gamma(image, gamma=1.0):
     new_image = np.zeros(image.shape, image.dtype)
-
-    alpha = 1.3
-    beta = 40
-    #new_image = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-    """
-    for y in range(image.shape[0]):
-        for x in range(image.shape[1]):
-            for c in range(image.shape[2]):
-                new_image[y,x,c] = np.clip(alpha*image[y,x,c] + beta, 0, 255)
-
-
-    lookUpTable = np.empty((1,256), np.uint8)
-    for i in range(256):
-        lookUpTable[0,i] = np.clip(pow(i / 255.0, gamma) * 255.0, 0, 255)
-    """
 
     # build a lookup table mapping the pixel values [0, 255] to
     # their adjusted gamma values
@@ -173,10 +113,10 @@ def adjust_gamma(image, gamma=1.0):
     return new_image
 
 
-nbr_contours = []
+# nbr_contours = []
 
 
-def contours2(original_image, conditions, special_conditions, percentage, minsize):
+def contours(original_image, conditions, special_conditions, percentage, minsize):
     # Get original height and width
     height, width, c = original_image.shape
     gamma = 1.5
@@ -185,42 +125,28 @@ def contours2(original_image, conditions, special_conditions, percentage, minsiz
     img = adjust_gamma(image=original_image, gamma=gamma)
     # plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     # plt.show()
-    # To reduce the noise we need to blur the input Image with Gaussian Blur and then convert it to grayscale. 
-    #img_blur = cv2.GaussianBlur(img, (7, 7), 0)
 
     # convert the image to grayscale format
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    """
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    cv2.imshow("img_rgb", img_rgb)
-    cv2.waitKey()
-    """
-
     # Find Canny edges
     edges = cv2.Canny(image=img_gray, threshold1=200, threshold2=350) # Increase the thresholds to keep less edges
     
-    
-    # thresh = cv2.adaptiveThreshold(edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 199, 5)
-
     # Using a findContours() function
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     # plt.imshow(cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB))
     # plt.show()
-    # plt.savefig("Orange_image.pdf", format="pdf")
     # Draw in blue the contours that were found
     # cv2.drawContours(image=edges, contours=contours, contourIdx=-1, color=(255, 0, 0), thickness=1)
     # plt.imshow(cv2.cvtColor(edges, cv2.COLOR_BGR2RGB))
-    # plt.savefig("Edges.pdf", format="pdf")
+    # plt.show()
     # cv2.imshow("Window", edges)
     # cv2.waitKey(0)
-    nbr_contours.append(len(contours))
+    # nbr_contours.append(len(contours))
     
     # img_contour = original_image.copy()
     rectangles = []
     special_rectangles = []
-    # kept_images = []
-    # spread_factors = []
     
     for cnt in contours:
         
@@ -229,12 +155,13 @@ def contours2(original_image, conditions, special_conditions, percentage, minsiz
         approx = cv2.approxPolyDP(cnt, 0.03 * peri, True)
         x, y, w, h = cv2.boundingRect(approx)
         augmented = False
+        
+        #If the given rectangle verifies the specified conditions, resize it and add it to the list of interesting rectangles
         if (conditions(w,h,minsize,peri)):
             # Draw in blue the contours that were found
             # cv2.drawContours(image=img_contour, contours=cnt, contourIdx=-1, color=(255, 0, 0), thickness=2)
             
-            # spread_factors.append(cnt.shape[0]/(w*h))
-            
+            # Resize the rectangle (enlarge it) 
             percent_w = w*percentage
             percent_h = h*percentage
 
@@ -250,27 +177,23 @@ def contours2(original_image, conditions, special_conditions, percentage, minsiz
             if (y + h + percent_h > height): h = height - y
             else: h = int(h + percent_h)
             
+            #To avoid resizing it a second time in the "special conditions"
             augmented = True
             
+            #Add rectangle to the list of interesting rectangles
             rectangles.append((x,y,w,h))
 
             # Using drawContours() function --> draw the contour in red with thickness 2
             # cv2.rectangle(img_contour, (x,y), (x+w, y+h), (0, 0, 255), 2)
-
-            # Cropping an image
-            # cropped_image = img[y:y+h, x:x+w]
-            
-            # # Display cropped image
-            # #cv2.imshow("cropped", cropped_image)
-            # #cv2.waitKey(0)
-            
-            # # Save the cropped image
-            # #cv2.imwrite("Cropped Image.jpg", cropped_image)
-
-            # kept_images.append(cv2.resize(cropped_image, (image_size, image_size)))
+        
+        
+        #If the rectangle verifies the special conditions, resize it and add it to the list of special rectangles
         if(special_conditions[0](w,h,minsize,peri)):
             
+            #If the rectangle has not yet been resized
             if not augmented :
+                
+                #Resize the rectangle
                 percent_w = w*percentage
                 percent_h = h*percentage
     
@@ -285,35 +208,21 @@ def contours2(original_image, conditions, special_conditions, percentage, minsiz
     
                 if (y + h + percent_h > height): h = height - y
                 else: h = int(h + percent_h)
-
+                    
+            #Add rectangle to the list of special rectangles
             special_rectangles.append((x,y,w,h))
             
             # cv2.drawContours(image=img_contour, contours=cnt, contourIdx=-1, color=(255, 0, 0), thickness=2)
             # cv2.rectangle(img_contour, (x,y), (x+w, y+h), (0, 0, 255), 2)
     
-    # print(special_rectangles)
+    #Go through all special rectangles and see if two of them are interesting to merge
     for i in range(len(special_rectangles)):
         for j in range(i+1,len(special_rectangles)):
+            #If they verify the conditions for merging, do so and add the result to the interesting rectangles
             if(special_conditions[1](special_rectangles[i],special_rectangles[j])):
                 merged_rec = merge_rectangles(special_rectangles[i],special_rectangles[j])
-                # x,y,w,h = merged_rec
-                # cv2.rectangle(img_contour, (x,y), (x+w, y+h), (0, 0, 255), 2)
                 rectangles.append(merged_rec)
-    # if (len(spread_factors) > 15) :
-    #     quantile = 15/len(spread_factors)
-    #     lim = max(np.quantile(spread_factors, quantile),np.float64(0.1))
-    #     indices = np.where(spread_factors <= lim)[0]
-    #     print(len(indices))
-    #     rectangles = np.array(rectangles)[indices].tolist()
-    #     print(rectangles)
     
-    # for x,y,w,h in rectangles :
-    #     cropped_image = img[y:y+h, x:x+w]
-    #     kept_images.append(cv2.resize(cropped_image, (image_size, image_size)))
-    # rectangles.append((0,0,width,height))
-    # kept_images.append(original_image)
-    # plt.imshow(cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
-    # plt.savefig("Sorted_bounding_box.pdf", format="pdf")
     # cv2.imshow("Window", img_contour)
     # cv2.waitKey(0)
     return rectangles
@@ -398,11 +307,11 @@ for image in X :
     threshold2 = 0.0 # Threshold for pannel + background model
     
     
-    # rectangles = contours2(extracted_image,conditions,spconds, percentage, minsize)
-    red_rectangles = contours2(red_image,red_conditions,red_spconds,red_percentage, red_minsize)
-    blue_rectangles = contours2(blue_image,blue_conditions, blue_spconds, blue_percentage, blue_minsize)
-    orange_rectangles = contours2(orange_image,orange_conditions, orange_spconds,orange_percentage, orange_minsize)
-    # white_rectangles = contours2(white_image, white_conditions, white_spconds, white_percentage, white_minsize)
+    # rectangles = contours(extracted_image,conditions,spconds, percentage, minsize)
+    red_rectangles = contours(red_image,red_conditions,red_spconds,red_percentage, red_minsize)
+    blue_rectangles = contours(blue_image,blue_conditions, blue_spconds, blue_percentage, blue_minsize)
+    orange_rectangles = contours(orange_image,orange_conditions, orange_spconds,orange_percentage, orange_minsize)
+    # white_rectangles = contours(white_image, white_conditions, white_spconds, white_percentage, white_minsize)
     # kept_rectangles = []
     
                 
