@@ -143,9 +143,6 @@ def adjust_gamma(image, gamma=1.0):
 
 
 
-# nbr_contours = []
-
-
 def contours(original_image, conditions, special_conditions, percentage, minsize):
     """Find the contours in an image thanks to edge detection, then return rectangles enclosing
        those contours that verify the specified conditions (Enlarge them with the specified percentage)."""
@@ -171,7 +168,6 @@ def contours(original_image, conditions, special_conditions, percentage, minsize
     # cv2.drawContours(image=edges, contours=contours, contourIdx=-1, color=(255, 0, 0), thickness=1)
     # plt.imshow(cv2.cvtColor(edges, cv2.COLOR_BGR2RGB))
     # plt.show()
-    # nbr_contours.append(len(contours))
     
     # To eventually plot further results :
     # img_contour = original_image.copy()
@@ -301,58 +297,38 @@ for folder_path in folders:
             count += 1
             Y.append(label)
 
-            
-IM_index = 0
-NBR_correct = 0
-
-nbr_rect = np.empty_like(X)
-i_nbr_rect = 0
-start = t.time()
-max_time = 0
-
+# Predict class for each image
 for image in X :
     
-    im_time = t.time()
+    # To store images classified as non-background
     kept_images = []
-    height, width, c = image.shape
-    #Show image
-    # plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    # plt.show()
-    # plt.savefig("Original_image_orange.pdf", format="pdf")
-    print(f"Image {IM_index+1}")
+    probas_predictions = [] # To store probabilities of kept images
+    class_predictions = []  # To store class predictions of kept images
     
-    # extracted_image, conditions, spconds, percentage, minsize = extract_color(image, "None")
+    height, width, c = image.shape
+    
+    # Apply our three color filters
     red_image, red_conditions, red_spconds, red_percentage, red_minsize = extract_color(image, "red")
     blue_image, blue_conditions, blue_spconds, blue_percentage, blue_minsize = extract_color(image, "blue")
     orange_image, orange_conditions, orange_spconds, orange_percentage, orange_minsize = extract_color(image, "orange")
-    # white_image, white_conditions, white_spconds, white_percentage, white_minsize = extract_color(image, "white")
-    # plt.imshow(cv2.cvtColor(red_image, cv2.COLOR_BGR2RGB))
-    # plt.show()
-    
-    probas_predictions = [] # To store probabilities of kept images
-    class_predictions = []  # To store class predictions of kept images
-    threshold = 0.0  # Threshold for binary classifier
-    threshold2 = 0.0 # Threshold for pannel + background model
     
     
-    # rectangles = contours(extracted_image,conditions,spconds, percentage, minsize)
+    # Find the contours associated with each filter
     red_rectangles = contours(red_image,red_conditions,red_spconds,red_percentage, red_minsize)
     blue_rectangles = contours(blue_image,blue_conditions, blue_spconds, blue_percentage, blue_minsize)
     orange_rectangles = contours(orange_image,orange_conditions, orange_spconds,orange_percentage, orange_minsize)
-    # white_rectangles = contours(white_image, white_conditions, white_spconds, white_percentage, white_minsize)
-    # kept_rectangles = []
-    
                 
-    
-    # original_image_clone = image.copy()
+        
+    # Merge all obtained rectangles and add the original image
     rectangles = red_rectangles + blue_rectangles + orange_rectangles
     rectangles.append((0,0,width,height))
-    nbr_rect[i_nbr_rect] = len(rectangles)
-    i_nbr_rect += 1
-    for rectangle in rectangles : # red_rectangles + blue_rectangles + orange_rectangles :
+    
+    # Go through all obtained rectangles
+    for rectangle in rectangles :
         
         x,y,w,h = rectangle
-        # Resized is the current window/cut image
+        
+        # Get the cropped image corresponding to the rectangle
         # We copy it to avoid modifying original image
         cropped_image = image[y:y+h, x:x+w]
         clone = cropped_image.copy()
@@ -361,220 +337,84 @@ for image in X :
         img = cv2.resize(clone, (32, 32))
         img = img.astype("float32") / 255
         
-    
-    # # Get probability of window being background
-    # model_predictions = binaryModel.predict(np.expand_dims(img, axis=0), verbose=0)
-
-    # # Sort the results - tell if probability for background > probability for pannel
-    # # If idx[0] = 1 -> proba background > proba pannel
-    # # If idx[0] = 0 -> proba background < proba pannel
-    # idx = np.argmax(model_predictions.flatten())
-
-    # #If image isn't a background (use threshold to determine) : 
-    # if(idx != 1 and model_predictions[0][idx] > threshold):
         
-        # print(model_predictions[0][idx[0]],model_predictions[0][idx[1]])
-        
-        # Get predictions of pannel + background model (background class == 62)
+        # Get predictions of TS + background model (background class == 62)
         pannel_predictions = pannelModel.predict(np.expand_dims(img, axis=0), verbose=0)
         idx2 = np.argmax(pannel_predictions.flatten())
         
         
-        # print(pannel_predictions[0][idx2], dico[idx2[0]],dico[idx2[1]],dico[idx2[2]])
-        
-        
-        #If image is still not classified as background (second threshold to determine) :
-        if idx2 != 62 and pannel_predictions[0][idx2] > threshold2 :
-            
-            # cv2.rectangle(original_image_clone, (x, y), (x + w, y + h), (0, 0, 255), 5)
-            # cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 5)
-            # plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-            # plt.show()
+        #If image is not classified as background :
+        if idx2 != 62 :
             
             # Save the results for this image
             probas_predictions.append(pannel_predictions[0][idx2])
             class_predictions.append(idx2)
             kept_images.append(img)
-        # else :
-        #     cv2.rectangle(original_image_clone, (x, y), (x + w, y + h), (255, 0, 0), 5)
-#             cv2.imshow("Window", original_image_clone)
-#             cv2.waitKey(1)
-    
-    # else :
-    #     cv2.rectangle(original_image_clone, (x, y), (x + w, y + h), (0, 255, 0), 5)
-#         cv2.imshow("Window", original_image_clone)
-#         cv2.waitKey(1)
-# plt.imshow(cv2.cvtColor(original_image_clone, cv2.COLOR_BGR2RGB))
-# plt.show()
+            
+    # end rectangle for loop
 
-    
-    
-    
-    
-    
-    
-    
+
     # probas_predictions now contains the probability for each kept sub_image
-    # If empty, no sub_image was kept
-    # print(probas_predictions)
-    # print(class_predictions)
+    # If empty, no sub_image was kept, so we return the cropped model prediction
     if probas_predictions == [] :
-        print("Found no traffic sign : returning cropped model prediction for original image")
         img = cv2.resize(image, (32, 32))
         img = img.astype("float32") / 255
         cropped_predictions = cropped_model.predict(np.expand_dims(img, axis=0), verbose=0)
         best_prediction = np.argmax(cropped_predictions.flatten())
-        print("Best prediction: classID=", best_prediction, ", name=", dico[best_prediction])
     
+    # Otherwise, verify whether our two CNN obtain the same prediction for some of the kept sub_images or not
     else :
         found_same = False
         sames_proba = []
         sames_class = []
-        
         cropped_probas = []
         cropped_classes = []
+        
+        # Used cropped model to predict the class of the kept sub_images
         kept_images = np.array(kept_images)
         cropped_predictions = cropped_model.predict(kept_images, verbose = 0)
+        
+        # Store the results
         for i in range(len(kept_images)) :
             idx = np.argmax(cropped_predictions[i].flatten())
             cropped_probas.append(cropped_predictions[i][idx])
             cropped_classes.append(idx)
-        # print(cropped_probas)
-        # print(cropped_classes)
-        
-        
-        #Compare the result af pannel + background model to that of the cropped model
+
+            
+        #Compare the result of TS + background model to that of the cropped model
         for i in range(len(kept_images)):
+            
+            # If both models have predicted the same output, keep this in mind and compute the sum of probabilities as final weight for this sub_image
             if(cropped_classes[i] == class_predictions[i]) :
                 found_same = True
-                
+        
                 # Ponderate the probas by multiplying results of both models
                 sames_proba.append(cropped_probas[i] + probas_predictions[i])
                 sames_class.append(cropped_classes[i])
         
-        # If both models return same result for a sub_image
+        # If both models return same result for at least one sub_image, keep the image for wich the weight is highest
         if found_same :
-            # found_very_good_big_image = False
-            
-            # # Try first the big images - sometimes very small images produce strange good results
-            # # When a pannel is realy recognised, proba is often > 0.999
-            # for i in range(len(sames_proba)) :
-            #     if sames_proba[i] > 2*0.999 :
-            #         print("Found very good big image")
-            #         found_very_good_big_image = True
-            #         best_prediction = sames_class[i]
-            #         print("Best prediction: classID=", best_prediction, ", name=", dico[best_prediction])
-            #         break
-            # if found_very_good_big_image == False :
-            print("Found matching predictions")
             index = np.argmax(sames_proba)
             best_prediction = sames_class[index]
-            print("Best prediction: classID=", best_prediction, ", name=", dico[best_prediction])
         
-        # If no sub_image has same results on both models
+        # If no sub_image has same results on both models, keep the image with highest probability (no matter if it comes from the TS + backgound model or the cropped model)
         else :
-            print("Found no two same predictions")
             index = np.argmax(probas_predictions)
             proba = probas_predictions[index]
             best_prediction = class_predictions[index]
             index = np.argmax(cropped_probas)
             if cropped_probas[index] >= proba : best_prediction = cropped_classes[index]
-            print("Best prediction: classID=", best_prediction, ", name=", dico[best_prediction])
     
-    
-    # img = cv2.resize(image, (32, 32))
-    # cropped_predictions = pannelModel.predict(np.expand_dims(img, axis=0), verbose=0)
-    # best_prediction = np.argmax(cropped_predictions.flatten())
-    max_time = max(t.time()-im_time, max_time)
-    # img = cv2.resize(image, (32, 32))
-    # img = img.astype("float32") / 255
-    # cropped_predictions = cropped_model.predict(np.expand_dims(img, axis=0), verbose=0)
-    # best_prediction = np.argmax(cropped_predictions.flatten())
-    print(f"Correct answer : classID= {Y[IM_index]} , name= {dico[Y[IM_index]]}")
+    # Store the final prediction
     final_y_pred.append(best_prediction)
-    if(best_prediction == Y[IM_index]) : NBR_correct += 1
-    IM_index += 1
-    
-    # cv2.imshow("Window", image)
-    # cv2.waitKey(0)
-        
-
-# Compute accuracy
-Accuracy = NBR_correct/(IM_index)
-time = t.time() - start
-
-print(f"Accuracy = {Accuracy}")
-print(f"Time taken : {time}, Per image : {time/IM_index}, Max : {max_time}")
-print(f"Mean number of rectangles : {nbr_rect.mean()}, Max : {nbr_rect.max()}")
-
-cv2.destroyAllWindows()
-
-# for i, image in enumerate(X) :
-#     X[i] = cv2.resize(image,(32,32))
-
-# X = np.array(X)
-# X = X.astype("float32") / 255
-# Y = np.array(Y)
-# Y = to_categorical(Y)
-
-# def evaluate_model(dataset, model, labels):
- 
-#     # class_names = ['airplane',
-#     #                'automobile',
-#     #                'bird',
-#     #                'cat',
-#     #                'deer',
-#     #                'dog',
-#     #                'frog',
-#     #                'horse',
-#     #                'ship',
-#     #                'truck' ]
-     
-#     # Retrieve a number of images from the dataset.
-#     data_batch = dataset
- 
-#     # Get predictions from model.  
-#     predictions = model.predict(data_batch)
- 
-#     #plt.figure(figsize=(20, 8))
-#     num_matches = 0
-         
-#     for idx in range(len(data_batch)):
-#         # ax = plt.subplot(num_rows, num_cols, idx + 1)
-#         # plt.axis("off")
-#         # plt.imshow(data_batch[idx])
- 
-#         pred_idx = np.argmax(predictions[idx])
-#         #category.append(pred_idx)
-#         truth_idx = np.nonzero(labels[idx])
-             
-#         # title = str(class_names[truth_idx[0][0]]) + " : " + str(class_names[pred_idx])
-#         # title = "test"
-#         # title_obj = plt.title(title, fontdict={'fontsize':13})
-             
-#         if pred_idx == truth_idx:
-#             num_matches += 1    
-#         #     plt.setp(title_obj, color='g')
-#         # else:
-#         #     plt.setp(title_obj, color='r')
-                 
-#     acc = num_matches/len(data_batch)
-#     print("Prediction accuracy: ", acc)
-#     return
-
-# evaluate_model(X, cropped_model, Y)
 
 
+# If need be, destroy all windows
+# cv2.destroyAllWindows()
 
-# solution = []
-# for i in range(len(image_nb)):
-#     solution.append(float(image_nb[i] + str(Y[i])))
 
-# #print(image_nb)
-# #print(y_pred)
-# print(solution)
-
-# df = pd.DataFrame()
-# df["Id"] = image_nb
-# df["Category"] = final_y_pred
-# df.to_csv("challenge2_groupe3_color_edges.csv", index=False)
+# Put the results in the .csv file
+df = pd.DataFrame()
+df["Id"] = image_nb
+df["Category"] = final_y_pred
+df.to_csv("student.csv", index=False)
