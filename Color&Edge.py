@@ -392,4 +392,5 @@ for image in X :
 df = pd.DataFrame()
 df["Id"] = image_nb
 df["Category"] = final_y_pred
+df.sort_values(by=["Id"], key=lambda s: s.astype(int))
 df.to_csv("student.csv", index=False)
