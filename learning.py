@@ -24,13 +24,13 @@ X = np.empty([4575, image_size, image_size, 3], dtype='uint8')
 y = np.empty(0)
 count = 0
 label = 0
-folders = sorted(os.listdir("../LEPL1507/LEPL1507-Projet4/Training"))
+folders = sorted(os.listdir("Training"))
 for folder_path in folders:
     if folder_path == "Readme.txt":
         continue
-    for file_path in os.listdir("../LEPL1507/LEPL1507-Projet4/Training/" + folder_path):
+    for file_path in os.listdir("Training/" + folder_path):
         if os.path.splitext(file_path)[-1] == '.ppm':
-            image = cv2.imread("../LEPL1507/LEPL1507-Projet4/Training/" + folder_path + "/" + file_path)
+            image = cv2.imread("Training/" + folder_path + "/" + file_path)
             X[count, :, :, :] = cv2.resize(image, (image_size, image_size))
             count += 1
             y = np.append(y,label)
@@ -61,14 +61,12 @@ y_train = y[p]
 
 # Normalize images to the range [0, 1].
 X_train = X_train.astype("float32") / 255
-#X_test  = X_test.astype("float32") / 255
  
 # Change the labels from integer to categorical data.
 print('Original (integer) label for the first training sample: ', y_train[0])
  
 # Convert labels to one-hot encoding.
 y_train = to_categorical(y_train)
-#y_test  = to_categorical(y_test)
  
 print('After conversion to categorical one-hot encoded labels: ', y_train[0])
 
@@ -172,5 +170,6 @@ plot_results([ train_acc, valid_acc ],
 
 	
 # Using the save() method, the model will be saved to the file system in the 'SavedModel' format.
-model.save('my_model_parking')
+# Change the name please !
+model.save('my_model_etc')
 
