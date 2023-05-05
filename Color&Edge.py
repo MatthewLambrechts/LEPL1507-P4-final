@@ -30,9 +30,9 @@ def extract_color(image, color):
     if color == "blue" :
         lower_bound = np.array([100,100,50])
         upper_bound = np.array([140,255,255])
-        conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 4/5 * w <= h <= 5/4 * w and peri < 0.27*w*h
+        conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 4/5 * w <= h <= 6/4 * w and peri < 0.27*w*h
         percentage = 0.1
-        minsize = max(min(height,width)/35, 16)
+        minsize = max(min(height,width)/30, 16)
         
     elif color == "red" :
         #Red spans around 180 / 0 in the HSV format, so we need two sets of bounds.
@@ -45,19 +45,19 @@ def extract_color(image, color):
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 4/5 * w <= h <= 5/4 * w and peri < 0.27*w*h
         
         #Here special conditions apply, for the no_entry traffic sign
-        special_conditions_1 = lambda w,h,minsize,peri : w >= minsize and h >= minsize/2.5 and 0.43 * w <= h <= 0.49 * w and peri < 0.25*w*h
-        special_conditions_2 = lambda rec1, rec2 : abs(rec1[0]-rec2[0]) <= 4 and abs(rec1[2]-rec2[2]) <= 8 and abs(rec1[3]-rec2[3]) <= 6 and abs(rec1[1]-rec2[1]) <= 2*rec1[3]
+        special_conditions_1 = lambda w,h,minsize,peri : w >= minsize and h >= minsize/2.5 and 0.4 * w <= h <= 0.5 * w and peri < 0.27*w*h
+        special_conditions_2 = lambda rec1, rec2 : abs(rec1[0]-rec2[0]) <= 5 and abs(rec1[2]-rec2[2]) <= 8 and abs(rec1[3]-rec2[3]) <= 6 and 3/4*rec1[3] <= abs(rec1[1]-rec2[1]) <= 2*rec1[3]
         special_conditions = [special_conditions_1,special_conditions_2]
         
         percentage = 0.1
-        minsize = max(min(height,width)/35, 16)
+        minsize = max(min(height,width)/30, 16)
         
     elif color == "white" :
         lower_bound = np.array([0,0,100])
         upper_bound = np.array([180,40,255])
         conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 2/3 * w <= h <= 3/2 * w  # and cnt.shape[0] < 0.15*w*h
         percentage = 0.5
-        minsize = max(min(height,width)/35, 12)
+        minsize = max(min(height,width)/35, 14)
         
     elif color == "black" :
         
@@ -73,14 +73,14 @@ def extract_color(image, color):
         
         lower_bound = np.array([10,50,0])
         upper_bound = np.array([30,255,255])
-        conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 9/10 * w <= h <= 10/9 * w and peri < 0.15*w*h
+        conditions = lambda w,h,minsize,peri : w >= minsize and h >= minsize and 6/7 * w <= h <= 7/6 * w and peri < 0.15*w*h
         
         #Here as well, special conditions apply for the end_priority traffic sign
         special_conditions_1 = conditions
         special_conditions_2 = lambda rec1, rec2 : overlap_percentage(rec1, rec2) >= 0.35 and abs(rec1[2]-rec2[2]) <= 8 and abs(rec1[3]-rec2[3]) <= 8 and abs(rec1[0]-rec2[0]) >= rec1[2]/4 and abs(rec1[1]-rec2[1]) >= rec1[3]/4
         special_conditions = [special_conditions_1,special_conditions_2]
         percentage = 0.75
-        minsize = max(min(height,width)/50, 10)
+        minsize = max(min(height,width)/40, 10)
     
     #If the color is not specified or unexpected, return the non filtered original image, default conditions, percentage etc...
     else :
