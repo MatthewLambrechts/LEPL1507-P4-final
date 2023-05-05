@@ -5,6 +5,7 @@ import numpy as np
 
 from keras.preprocessing.image import ImageDataGenerator
 
+# On parcourt le dataset
 y = []
 label = 0
 folders = sorted(os.listdir("Merged_Data/"))
@@ -18,13 +19,14 @@ for folder_path in folders:
 
 y = np.array(y)
 
-
+# On plot la répartition des images par classe dans le dataset
 plt.hist(y, bins=len(np.unique(y)))
 plt.title("Distribution of data in dataset")
 plt.xlabel("ClassId")
 plt.ylabel("Frequency")
 plt.show()
 
+# On reparcourt le dataset pour augmenter les images jusqu'à avoir le même nombre d'images par classe
 maxi = 0
 for i in range(62):
     maxi = max(maxi, np.count_nonzero(y == i))
@@ -51,7 +53,6 @@ for folder_path in folders:
         height_shift_range=0.2,
         brightness_range=[0.5, 1.5],
         zoom_range=0.2
-        #shear_range=10.0
     )
 
     X = np.array(X)
@@ -65,6 +66,7 @@ for folder_path in folders:
 
     X = np.array(X)
     
+    # On sauvegarde le nouveau dataset généré
     for i in range(len(X)):
         plt.imsave("Merged_and_Balanced_DataSet/" + folder_path + "/" + str(i) + ".ppm", cv2.cvtColor(X[i], cv2.COLOR_BGR2RGB))
     

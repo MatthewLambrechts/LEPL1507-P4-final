@@ -6,76 +6,63 @@ import matplotlib.pyplot as plt
 import cv2
 
 import tensorflow as tf
+
 from keras import Sequential
 from keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Flatten
- 
+
 from keras.utils import to_categorical
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter)
 
+from keras.callbacks import ModelCheckpoint
+
 SEED_VALUE = 42
  
-# Fix seed to make training deterministic.
+# On fixed la seed pour rendre le code déterministe
 random.seed(SEED_VALUE)
 np.random.seed(SEED_VALUE)
 tf.random.set_seed(SEED_VALUE)
 
+# On parcourt le dataset augmenté et stocke les labels
 image_size=32
-X = np.empty([4575, image_size, image_size, 3], dtype='uint8')
-y = np.empty(0)
+X = []
+y = []
 count = 0
 label = 0
-folders = sorted(os.listdir("Training"))
+folders = sorted(os.listdir("AugmentBalancedDataSetMerged/"))
 for folder_path in folders:
     if folder_path == "Readme.txt":
         continue
-    for file_path in os.listdir("Training/" + folder_path):
-        if os.path.splitext(file_path)[-1] == '.ppm':
-            image = cv2.imread("Training/" + folder_path + "/" + file_path)
-            X[count, :, :, :] = cv2.resize(image, (image_size, image_size))
+    for file_path in os.listdir("AugmentBalancedDataSetMerged/" + folder_path):
+        if os.path.splitext(file_path)[-1] == '.ppm' or os.path.splitext(file_path)[-1] == '.png':
+            image = cv2.imread("AugmentBalancedDataSetMerged/" + folder_path + "/" + file_path)
+            X.append(cv2.resize(image, (image_size, image_size)))
             count += 1
-            y = np.append(y,label)
+            y.append(label)
     label += 1
 
+X = np.array(X)
+y = np.array(y)
+
+# On permute les données pour ne pas donner des entrées triées au CNN 
 p = np.random.permutation(len(X))
 
 X_train = X[p]
 y_train = y[p]
-
-# (X_train, y_train), (X_test, y_test) = cifar10.load_data()
- 
-# print(X_train.shape)
-# print(X_test.shape)
-
-# plt.figure(figsize=(18, 9))
- 
-# num_rows = 4
-# num_cols = 8
- 
-# # plot each of the images in the batch and the associated ground truth labels.
-# for i in range(num_rows*num_cols):
-#     ax = plt.subplot(num_rows, num_cols, i + 1)
-#     plt.imshow(X_train[i,:,:])
-#     plt.axis("off")
-
-# plt.show()
-
-# Normalize images to the range [0, 1].
+    
+# On normalise les images pour avoir des valeurs entre 0 et 1
 X_train = X_train.astype("float32") / 255
  
-# Change the labels from integer to categorical data.
-print('Original (integer) label for the first training sample: ', y_train[0])
- 
-# Convert labels to one-hot encoding.
+# On convertit les labels en one-hot encoding
 y_train = to_categorical(y_train)
  
-print('After conversion to categorical one-hot encoded labels: ', y_train[0])
 
+# Modèle pris depuis le site https://learnopencv.com/Implementing-cnn-tensorflow-keras/ très similaire à l'architecture du VGG-16
 def cnn_model_dropout(input_shape=(32, 32, 3)):
      
     model = Sequential()
      
     #------------------------------------
-    # Conv Block 1: 32 Filters, MaxPool.
+    # Premier bloc de convolution
     #------------------------------------
     model.add(Conv2D(filters=32, kernel_size=3, padding='same', activation='relu', input_shape=input_shape))
     model.add(Conv2D(filters=32, kernel_size=3, padding='same', activation='relu'))
@@ -83,23 +70,23 @@ def cnn_model_dropout(input_shape=(32, 32, 3)):
     model.add(Dropout(0.25))
  
     #------------------------------------
-    # Conv Block 2: 64 Filters, MaxPool.
-    #------------------------------------
+    # Deuxième bloc de convolution
+    #------------------------------------   
     model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
     model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
  
     #------------------------------------
-    # Conv Block 3: 64 Filters, MaxPool.
+    # Troisième bloc de convolution
     #------------------------------------
     model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
     model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
-     
+
     #------------------------------------
-    # Flatten the convolutional features.
+    # Couche entièrement connectée
     #------------------------------------
     model.add(Flatten())
     model.add(Dense(512, activation='relu'))
@@ -108,23 +95,29 @@ def cnn_model_dropout(input_shape=(32, 32, 3)):
      
     return model
 
-# Create the model.
 model = cnn_model_dropout()
-model.summary()
 
 model.compile(optimizer='rmsprop', 
               loss='categorical_crossentropy', 
               metrics=['accuracy'],
-             )
+            )
 
+# On sauvegarde les paramètres du modèle après chaque epoch pour pouvoir les tester après
+filepath = "my_balanced_model_merged_RMS_32_{epoch:02d}_Augmented.h5"
+
+checkpoint = ModelCheckpoint(filepath, save_freq='epoch', save_weights_only=False, period=1)
+
+# On entraine le modèle et garde l'historique pour pouvoir plot après
 history = model.fit(X_train,
                     y_train,
-                    batch_size=256, 
-                    epochs=31, 
+                    batch_size=32, 
+                    epochs=15, 
                     verbose=1, 
                     validation_split=.3,
+                    callbacks=[checkpoint]
                    )
 
+# Fonction également prise du site https://learnopencv.com/Implementing-cnn-tensorflow-keras/ mais très facilement faisable par nous-même
 def plot_results(metrics, title=None, ylabel=None, ylim=None, metric_name=None, color=None):
      
     fig, ax = plt.subplots(figsize=(15, 4))
@@ -139,18 +132,19 @@ def plot_results(metrics, title=None, ylabel=None, ylim=None, metric_name=None, 
     plt.xlabel("Epoch")
     plt.ylabel(ylabel)
     plt.title(title)
-    plt.xlim([0, 31-1])
+    plt.xlim([0, 15-1])
     plt.ylim(ylim)
-    # Tailor x-axis tick marks
+    # On met des ticks sur l'axe des x
     ax.xaxis.set_major_locator(MultipleLocator(5))
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.xaxis.set_minor_locator(MultipleLocator(1))
     plt.grid(True)
-    plt.legend(metric_name)   
+    plt.legend(metric_name)
+    plt.savefig(f"CNN_plot_{ylabel}.eps")   
     plt.show()
     plt.close()
 
-# Retrieve training results.
+# On plot les résultats
 train_loss = history.history["loss"]
 train_acc  = history.history["accuracy"]
 valid_loss = history.history["val_loss"]
@@ -167,9 +161,4 @@ plot_results([ train_acc, valid_acc ],
             ylim = [0.0, 1.0],
             metric_name=["Training Accuracy", "Validation Accuracy"],
             color=["g", "b"])
-
-	
-# Using the save() method, the model will be saved to the file system in the 'SavedModel' format.
-# Change the name please !
-model.save('my_model_etc')
 

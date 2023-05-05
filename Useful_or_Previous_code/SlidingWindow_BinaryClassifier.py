@@ -20,38 +20,36 @@ import pandas as pd
 import os
 
 
-# Yields different sub_image sizes (but not the images themselves)
+# Génère différentes tailles de sous-images mais les images en tant que telles
 def pyramid_2(image, scale=1.5, minSize=(16, 16)):
- 	# yield the original image size (only non-square sub_image returned)
+ 	# Génère la taille originale de l'image (seulement pour images non carrées)
     yield (image.shape[0],image.shape[1])
     it = 0
-    #get minimum of height and width
+    # Minimum de la longeur et de la largeur
     m = min(image.shape[0]*scale, image.shape[1]*scale)
     while it < 8:
-  		  # compute the new dimensions of the image and resize it
+  		  # Calcule les nouvelles dimensions de l'image et la redimensionne
           m = int(m/scale)
           it += 1
-  		  # if the resized image does not meet the supplied minimum
-  		  # size, then stop constructing the pyramid
-          # If an image 3 times bigger has already be considered as non background,
-          # stop constructing the pyramid
+  		  # Si elle est plus petite que le minimum requis on arrête
+          # Si une image 3 fois plus grande a déjà été considérée comme non background, on arrête
           if STOP_MARKER == 3 or m < minSize[0] or m < minSize[1]:
               break
-  		  # yield the next size in the pyramid (square images)
+  		  # Génère la prochaine taille dans la pyramide (pour images carrées)
           yield (m,m)
 
-# Yields all sub_images of given size 
+# Génère une sous image random d'une certaine taille
 def sliding_window_2(image, windowSize):
-    #Slide de window_frame across the whole image
+    # Glisse la fenêtre sur toute l'image
     for y in range(0, image.shape[0], int(windowSize[0]/2.0)):
           for x in range(0, image.shape[1], int(windowSize[1]/2.0)):
-              #If the border of the image is reached, stop
+              # Si le bord de l'image est atteint, on arrête
               if(y + windowSize[0]/2 > image.shape[0] or x + windowSize[1]/2 > image.shape[1]) : break
-              # yield the current window
+              # Génère la fenêtre courante
               yield (x, y, image[y:y + windowSize[0], x:x + windowSize[1]])
 
 
-#dictionnaire des labels: {num_panneau: nom_panneau, ...}
+# Dictionnaire des labels: {num_panneau: nom_panneau, ...}
 dico = {}
 df = pd.read_excel("LEPL1507_TS.xlsx")
 for index, row in df.iterrows():
@@ -59,13 +57,13 @@ for index, row in df.iterrows():
 dico[62] = "Background"
 
 
-#Load all three different models
+# Charge les trois classificateurs
 binaryModel = models.load_model("my_background&pannel_binary_model")
 pannelModel = models.load_model("my_background&panel_model")
 cropped_model = models.load_model("my_balanced_model_merged_RMS_32_15_Augmented.h5")
 
 
-#Get all images and labels
+# Stocke toutes les images et labels
 image_size=32
 X = []
 Y = []
@@ -86,34 +84,31 @@ for folder_path in folders:
 IM_index = 0
 NBR_correct = 0
 t = time.time()
-#Predict class for each image
+
+# Prediction de la classe pour chaque image
 for image in X :
-    
-    #Show image
-    # plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    # plt.show()
     
     print(f"Image {IM_index + 1}")
     
-    probas_predictions = [] # To store probabilities of kept images
-    class_predictions = []  # To store class predictions of kept images
-    kept_images = []  # To store kept images
-    threshold = 0.99  # Threshold for binary classifier
-    threshold2 = 0.95 # Threshold for pannel + background model
+    probas_predictions = [] # Pour garder la proba des images gardées
+    class_predictions = []  # Pour garder la prédiction de la classe pour les images gardées 
+    kept_images = []  # Pour garder les images gardées
+    threshold = 0.99  # Threshold pour le classificateur binaire
+    threshold2 = 0.95 # Threshold pour pannel + background model
     
     
     
-    # loop over the image pyramid
+    # Boucle sur la pyramide
   
     STOP_MARKER = 0
     
-    # Loop over different sub_image sizes
+    # Boucle sur les différentes tailles des sous-images
     for size in pyramid_2(image, scale=1.5):
         
-        # Whether an image with this size has been considered as a pannel - useful later
+        # Vérifie si une image avec cette taille a été considérée comme un panneau - Utile après
         Size_contains_non_BK = False
         
-        # loop over the sliding window for each size given by pyramid
+        # Boucle sur le sliding window pour chaque taille donnée par la pyramide
         for (x, y, resized) in sliding_window_2(image, windowSize=size):
             
             # Some comments are used to plot the sliding window/results - not essential to compute result
@@ -146,10 +141,6 @@ for image in X :
                 #If image is still not classified as background (use second threshold to determine) :
                 if idx2[0] != 62 and pannel_predictions[0][idx2[0]] > threshold2 :
                     
-                    # cv2.rectangle(original_image_clone, (x, y), (x + size[0], y + size[1]), (0, 0, 255), 5)
-                    # plt.imshow(cv2.cvtColor(original_image_clone, cv2.COLOR_BGR2RGB))
-                    # plt.show()
-                    
                     # Save the results for this image
                     probas_predictions.append(pannel_predictions[0][idx2[0]])
                     class_predictions.append(idx2[0])
@@ -159,20 +150,11 @@ for image in X :
                     if Size_contains_non_BK == False :
                         STOP_MARKER += 1 #When this reaches 3 (or 2 - TO MODIFY), an image 3 times bigger has been registered as a pannel : stop the sliding window (small images sometimes cause errors)
                         Size_contains_non_BK = True
-        
-            
-            # else :
-            #     cv2.rectangle(original_image_clone, (x, y), (x + size[0], y + size[1]), (0, 255, 0), 5)
-            #     cv2.imshow("Window", original_image_clone)
-            #     cv2.waitKey(1)
  
         # If the no image of this size has been registered, restore the size marker
         # (often, images around the pannel but a bit too big for it, as well as images on the pannel but a bit too small are registered as pannel)
         if Size_contains_non_BK == False : STOP_MARKER = 0
-    
-    # cv2.destroyAllWindows()
-    
-    
+      
     
     #########################################################################################################################################################################
     
