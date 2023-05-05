@@ -256,16 +256,6 @@ def contours(original_image, conditions, special_conditions, percentage, minsize
     return rectangles
 
 
-
-
-#dictionary of labels: {TS_ID: TS_name, ...}
-dico = {}
-df = pd.read_excel("LEPL1507_TS.xlsx")
-for index, row in df.iterrows():
-    dico[row["c1"]] = row["c2"]
-dico[62] = "Background"
-
-
 #Load both models
 pannelModel = models.load_model("my_background&panel_model")
 cropped_model = models.load_model('my_balanced_model_merged_RMS_32_15_Augmented.h5')
