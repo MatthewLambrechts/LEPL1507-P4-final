@@ -4,12 +4,10 @@
     Stratégie:
     3 étapes:
     - sliding window
-    - Background&PanelModel sur chaque sous-image créée par sliding window et stockage ou non dans le dictionnaire des meilleures prédictions de chaque sous-image
-    - détermination de la meilleure prédiction parmi les meilleures prédictions de chaque sous-image
+    - BinaryModel sur chaque sous image pour éliminer la large majorité d'images de background.
+    - Background&PanelModel sur chaque sous-image restante et stockage ou non dans le dictionnaire des meilleures prédictions de chaque sous-image
+    - détermination de la meilleure prédiction parmi les meilleures prédictions de chaque sous-image (vérification avec CroppedModel)
 
-    TODO:
-    - introduire boucle for pour parcourir chaque image du challenge-2
-    - remplir submission_file.csv à soumettre sur kaggle
 
  """
 
