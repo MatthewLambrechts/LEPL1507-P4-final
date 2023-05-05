@@ -37,38 +37,8 @@ for i in range(-1, 62):
 #AugmentedBelgianTrainingSet -> Background&PanelTrainingSet classe i
 #BelgianTestingSet -> Background&PanelTestingSet classe i
 #dir_source, dir_destination = str
+#split = float in [0,1]
 #return: /
-def transfer_panels(dir_source, dir_destination):
-    image_size=32
-    folders = sorted(os.listdir(dir_source))
-
-    #parcours des classes
-    for folder_path in folders:
-        if folder_path == "Readme.txt":
-            continue #on nie
-
-        X = []
-
-        # parcours des images de la classe
-        for file_path in os.listdir(dir_source+ "/" + folder_path):
-            #on ne lit que les images, pas les .csv de chaque classe contenant les coordonnées des sommets du rectangle correcte de la détection et la classID correcte pour entraîner le modèle
-            if os.path.splitext(file_path)[-1] == '.ppm':
-                image = cv2.imread(dir_source + "/" + folder_path + "/" + file_path)
-
-                # X contient les images resized à la taille 32
-                X.append(cv2.resize(image, (image_size, image_size)))
-
-        #images ds la classe courante
-        nb_images = len(X)
-        
-        X = np.array(X)
-
-        # save toutes les images de la classe courante dans la classe correspondante de dir_destination
-        for i in range(nb_images):
-            plt.imsave(dir_destination + "/" + folder_path + "/" + str(i) + ".ppm", cv2.cvtColor(X[i], cv2.COLOR_BGR2RGB))
-
-    return
-
 def transfer_panels_sep(dir_source, dir_train_destination, dir_test_destination, split):
     image_size=32
     folders = sorted(os.listdir(dir_source))
