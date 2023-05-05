@@ -3,10 +3,7 @@ import cv2
 import os 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from keras import models
-from keras.utils import to_categorical
-import time as t
 
 
 def extract_color(image, color):
