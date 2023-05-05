@@ -269,33 +269,23 @@ for index, row in df.iterrows():
 dico[62] = "Background"
 
 
-#Load all three different models
-binaryModel = models.load_model("my_background&pannel_binary_model")
+#Load both models
 pannelModel = models.load_model("my_background&panel_model")
 cropped_model = models.load_model('my_balanced_model_merged_RMS_32_15_Augmented.h5')
 
 
 #Load all images
-image_size=32
 X = []
-Y = []
 image_nb = []
 final_y_pred = []
-count = 0
-folders_path = "challenge-1/eval_kaggle1_sorted"
-folders_path = "challenge-2-non-cropped-images/eval_kaggle2_sorted"
-folders_path = "challenge-3-noisy-images/eval_kaggle3_sorted"
-folders = sorted(os.listdir(folders_path))
-for folder_path in folders:
-    label = int(folder_path)
-    images = sorted(os.listdir(folders_path + "/" + folder_path))
-    for image_path in images :
-        if(image_path.endswith(".ppm") or image_path.endswith(".jpg")) :
-            image_nb.append(image_path.split('.')[0])
-            image = cv2.imread(folders_path + "/" + folder_path + "/" + image_path)
-            X.append(image)
-            count += 1
-            Y.append(label)
+folder_path = "data"
+image_paths = os.listdir(folder_path)
+for image_path in image_paths :
+    if(image_path.endswith(".ppm") or image_path.endswith(".jpg")) :
+        image_nb.append(image_path.split('.')[0])
+        image = cv2.imread(folder_path + "/" + image_path)
+        X.append(image)
+
 
 # Predict class for each image
 for image in X :
@@ -343,10 +333,8 @@ for image in X :
         idx2 = np.argmax(pannel_predictions.flatten())
         
         
-        #If image is not classified as background :
+        #If image is not classified as background, save the results for this image and the image itself
         if idx2 != 62 :
-            
-            # Save the results for this image
             probas_predictions.append(pannel_predictions[0][idx2])
             class_predictions.append(idx2)
             kept_images.append(img)
